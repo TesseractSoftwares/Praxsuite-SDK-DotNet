@@ -166,12 +166,24 @@ stages:
             RELEASE=$(curl -sf -X POST -H "$AUTH" "$API/releases" \
               -d "{\"tag_name\":\"$TAG\",\"name\":\"Praxsuite SDK for .NET $(pkgVersion)\",\"body\":\"$NOTES\",\"draft\":false,\"prerelease\":false}")
 
-            RELEASE_ID=$(echo "$RELEASE" | head -5 | grep -m1 '"id"' | sed 's/[^0-9]//g')
-            PKG=$(ls "$(Build.ArtifactStagingDirectory)/package/"*.nupkg | head -1)
+            RELEASE_ID=$(echo "$RELEASE" | grep -o '"id": *[0-9]*' | head -1 | tr -dc '0-9')
+            if [ -z "$RELEASE_ID" ]; then
+              echo "##vso[task.logissue type=error]Could not read the release id from the GitHub response."
+              exit 1
+            fi
+            PKG=$(ls "$(Build.ArtifactStagingDirectory)/package/"*.nupkg | grep -v '\.snupkg$' | head -1)
 
             curl -sf -X POST -H "$AUTH" -H "Content-Type: application/octet-stream" \
               --data-binary @"$PKG" \
-              "https://uploads.github.com/repos/$(githubRepo)/releases/$RELEASE_ID/assets?name=$(basename $PKG)" >/dev/null
+              "https://uploads.github.com/repos/$(githubRepo)/releases/$RELEASE_ID/assets?name=${PKG##*/}"
 
-            echo "Published release $TAG"
+            # Verify rather than trust: assert the asset is actually attached. The first
+            # release cut by this pipeline reported success while uploading nothing.
+            ASSETS=$(curl -sf -H "$AUTH" "$API/releases/tags/$TAG" | grep -c '"state": *"uploaded"' || true)
+            if [ "$ASSETS" -lt 1 ]; then
+              echo "##vso[task.logissue type=error]Release $TAG was created but no asset attached. Check the upload URL and the asset name."
+              exit 1
+            fi
+
+            echo "Published release $TAG with $ASSETS asset(s)"
           displayName: 'Cut GitHub release'
