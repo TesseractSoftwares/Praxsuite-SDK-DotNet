@@ -1,0 +1,45 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <!--
+      netstandard2.1 covers Godot 4 (C#), Unity, Xamarin and .NET Framework-adjacent consumers.
+      net8.0 gets the modern runtime's faster HttpClient path and nullable annotations.
+      Multi-targeting is what lets one codebase serve ASP.NET, Blazor, MAUI, console and Godot.
+    -->
+    <TargetFrameworks>netstandard2.1;net8.0</TargetFrameworks>
+    <LangVersion>9</LangVersion>
+    <Nullable>disable</Nullable>
+    <ImplicitUsings>disable</ImplicitUsings>
+    <TreatWarningsAsErrors>false</TreatWarningsAsErrors>
+    <GenerateDocumentationFile>true</GenerateDocumentationFile>
+
+    <!-- XML doc warnings would drown out real ones; the public API is documented regardless. -->
+    <NoWarn>CS1591</NoWarn>
+
+    <RootNamespace>Praxsuite</RootNamespace>
+    <AssemblyName>Praxsuite.Sdk</AssemblyName>
+
+    <PackageId>Praxsuite.Sdk</PackageId>
+    <Version>1.0.0</Version>
+    <Authors>Tesseract Softwares</Authors>
+    <Company>Tesseract Softwares SpA</Company>
+    <Description>Praxsuite SDK for .NET. Auth, queries, files and server-authoritative endpoints for ASP.NET, Blazor, MAUI, Godot and console apps. Zero dependencies.</Description>
+    <PackageTags>praxsuite;backend;baas;database;authentication;sdk;godot</PackageTags>
+    <PackageProjectUrl>https://praxsuite.com</PackageProjectUrl>
+    <RepositoryUrl>https://github.com/TesseractSoftwares/Praxsuite-SDK-DotNet</RepositoryUrl>
+    <PackageLicenseFile>LICENSE</PackageLicenseFile>
+    <PackageReadmeFile>README.md</PackageReadmeFile>
+    <IncludeSymbols>true</IncludeSymbols>
+    <SymbolPackageFormat>snupkg</SymbolPackageFormat>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <None Include="../../LICENSE" Pack="true" PackagePath="" />
+    <None Include="../../README.md" Pack="true" PackagePath="" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <InternalsVisibleTo Include="Praxsuite.Sdk.Tests" />
+  </ItemGroup>
+
+</Project>
