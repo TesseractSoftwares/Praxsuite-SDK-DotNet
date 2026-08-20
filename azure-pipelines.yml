@@ -7,15 +7,15 @@
 # Validation builds BOTH target frameworks and runs the offline suite - 41 tests, no network and
 # no workspace needed. A break in either target is a break for a consumer, so both are built.
 
+# There is deliberately no paths: exclude here. Excluding README.md looks like an easy saving,
+# but the mirror-to-GitHub step in this pipeline IS how the public repo gets updated - so a
+# documentation-only change would never reach a single reader. Running the suite for a typo fix is
+# the cheaper mistake.
 trigger:
   branches:
     include:
       - master
       - development
-  paths:
-    exclude:
-      - README.md
-      - CHANGELOG.md
 
 pr:
   branches:
