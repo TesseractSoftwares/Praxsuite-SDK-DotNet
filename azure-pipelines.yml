@@ -125,6 +125,27 @@ stages:
             ls -la "$(Build.ArtifactStagingDirectory)/package/"
           displayName: 'Pack NuGet package'
 
+        # An artifact that exists is not an artifact that works. The TypeScript SDK published a
+        # 7 KB tarball containing no code, and every gate in that pipeline passed because each one
+        # checked for the artifact's presence and its "uploaded" state - never its contents.
+        - script: |
+            set -e
+            PKG=$(ls "$(Build.ArtifactStagingDirectory)/package/"*.nupkg | grep -v '\.snupkg$' | head -1)
+            # Both target frameworks must be present: shipping one silently drops every consumer
+            # on the other.
+            DLLS=$(python3 -c "
+            import sys, zipfile
+            names = zipfile.ZipFile(sys.argv[1]).namelist()
+            print('\n'.join(n for n in names if n.endswith('.dll')))
+            " "$PKG")
+            echo "$DLLS"
+            N=$(echo "$DLLS" | grep -c 'Praxsuite.Sdk.dll' || true)
+            if [ "$N" -lt 2 ]; then
+              echo "##vso[task.logissue type=error]Expected Praxsuite.Sdk.dll for both target frameworks, found $N."
+              exit 1
+            fi
+          displayName: 'Verify the package carries both assemblies'
+
         - task: PublishBuildArtifacts@1
           displayName: 'Publish package artifact'
           inputs:
