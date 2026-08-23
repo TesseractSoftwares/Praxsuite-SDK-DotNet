@@ -98,11 +98,11 @@ stages:
             version: '9.0.x'
 
         - task: AzureKeyVault@2
-          displayName: 'Read GitHub token'
+          displayName: 'Read publish secrets'
           inputs:
             azureSubscription: 'sc-acr-push-core-prod'
             KeyVaultName: 'prax-cicd-kv'
-            SecretsFilter: 'GITHUB-SDK-MIRROR-TOKEN'
+            SecretsFilter: 'GITHUB-SDK-MIRROR-TOKEN,NUGET-API-KEY'
             RunAsPreJob: false
 
         # The csproj is the single source of truth for the release tag, so a release can never
@@ -229,3 +229,55 @@ stages:
 
             echo "Published release $TAG with $ASSETS asset(s)"
           displayName: 'Cut GitHub release'
+
+        # NuGet comes LAST. Like npm and PyPI it will not accept a version twice, so a bad push
+        # burns the version number permanently - everything that can fail should have failed by now.
+        #
+        # nuget.org now steers automated publishing towards Trusted Publishing, which supports only
+        # GitHub Actions and GitLab CI/CD. Its own banner says API keys continue to work for
+        # "unsupported CI/CD workflows", which is what Azure DevOps is today. Their notice also says
+        # broader CI/CD support is coming, so revisit this and drop the key when ADO is covered.
+        #
+        # --no-symbols is deliberate. The csproj produces a .snupkg, and dotnet nuget push would
+        # otherwise upload it alongside automatically. Publishing symbols is better DX and costs us
+        # nothing now the repo is public, but it was not asked for - enabling it is just deleting
+        # this one flag.
+        - script: |
+            set -e
+            OUT="$(Build.ArtifactStagingDirectory)/package"
+            PKG=$(ls "$OUT"/*.nupkg | grep -v '\.snupkg$' | head -1)
+            if [ -z "$PKG" ]; then
+              echo "##vso[task.logissue type=error]No .nupkg to push. Contents of $OUT:"
+              ls -la "$OUT"
+              exit 1
+            fi
+            echo "Pushing ${PKG##*/}"
+
+            # --skip-duplicate keeps a re-run green instead of failing on an existing version.
+            dotnet nuget push "$PKG" \
+              --api-key "$(NUGET-API-KEY)" \
+              --source https://api.nuget.org/v3/index.json \
+              --skip-duplicate \
+              --no-symbols
+          displayName: 'Publish to NuGet'
+
+        # A read-back, NOT a gate. The push is irreversible, so failing here would report the
+        # opposite of what happened - the mistake the npm step made on its first run, where it read
+        # an unpropagated size of 0 and failed a build whose publish had succeeded.
+        #
+        # NuGet is slower than the others: a new package goes through validation and indexing before
+        # it is resolvable, which routinely takes several minutes.
+        - script: |
+            PKG_ID=praxsuite.sdk
+            for attempt in 1 2 3 4 5 6 7 8; do
+              CODE=$(curl -sS -o /tmp/nuget.json -w '%{http_code}'                 "https://api.nuget.org/v3-flatcontainer/$PKG_ID/index.json")
+              if [ "$CODE" = "200" ] && grep -q '"$(pkgVersion)"' /tmp/nuget.json; then
+                echo "nuget.org lists $PKG_ID $(pkgVersion):"
+                cat /tmp/nuget.json; echo
+                exit 0
+              fi
+              echo "Not indexed yet (attempt $attempt, HTTP $CODE); waiting 20s."
+              sleep 20
+            done
+            echo "##vso[task.logissue type=warning]Praxsuite.Sdk $(pkgVersion) was pushed but is not indexed yet. NuGet validation and indexing routinely takes several minutes. Confirm with: dotnet add package Praxsuite.Sdk --version $(pkgVersion)"
+          displayName: 'Confirm on NuGet'
