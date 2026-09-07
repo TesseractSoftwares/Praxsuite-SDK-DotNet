@@ -3,6 +3,40 @@
 All notable changes to the Praxsuite SDK for .NET.
 This project follows [Semantic Versioning](https://semver.org/).
 
+## [1.1.0] - 2026-09-07
+
+### Added
+
+- **`prax.Bus` - the Event Bus.** Ephemeral realtime between connected clients.
+  `prax.Bus.Topic("office").Channel("hq")` gives a channel with `JoinAsync`, `PublishAsync`,
+  `LeaveAsync` and `On`, plus presence and the caller's own `prax.Bus.Self`. Reconnects with
+  backoff and re-joins every channel, because SignalR group membership does not survive a
+  reconnect and a client that only reconnects is connected, in no groups, and silent.
+
+  It speaks SignalR's JSON protocol over `ClientWebSocket` rather than referencing
+  `Microsoft.AspNetCore.SignalR.Client`: the surface is four message types wide, this package
+  keeps its zero dependencies (which is what lets it load into Godot and Unity), and that client
+  defaults `withCredentials` to true - the one setting that makes the handshake fail against our
+  gateway, because the CORS spec forbids answering a credentialed request with the wildcard
+  origin the front door sends.
+
+- **`Auth.StartOidcLoginAsync`**, which returns the `state` alongside the URL instead of making
+  callers re-parse it, and **`GetWorkspaceConfigAsync().Providers`**, which carries each
+  provider's display name so a button can be labelled.
+
+### Fixed
+
+- **`CompleteOidcLoginAsync` could never succeed.** It sent `{ code, state }`, and the gateway
+  also requires `providerSlug` - the one-time state is scoped per provider, so omitting it makes
+  every callback look expired - and `redirectUri`, which it compares against the value configured
+  for that provider. The signature is now
+  `CompleteOidcLoginAsync(providerSlug, code, state, redirectUri)`. This is a breaking change to a
+  call that returned 401 or 400 every time it was made.
+
+### Changed
+
+- `GetOidcAuthorizationUrlAsync` is obsolete. It still works and returns only the URL; the state
+  it discards is required by the callback.
 ## [1.0.0] - 2026-08-19
 
 First release.

@@ -82,9 +82,102 @@ so a factory-supplied client stays yours.
 | `prax.Files` | Upload and download; short-lived signed URLs |
 | `prax.Players` | Platform identity links for analytics and account linking |
 | `prax.Schema` | Address tables by name instead of GUID |
+| `prax.Bus` | The Event Bus - ephemeral realtime between connected clients |
 
 Rows project onto your own types: `.ToListAsync<Score>()`, or read them column-wise with
 `row.GetInt("Score")`.
+
+---
+
+## The Event Bus
+
+Ephemeral realtime between connected clients: live cursors, avatars, "user is typing", a
+multiplayer lobby. State that is *changing*, where losing a message is fine because a newer one is
+100ms behind it.
+
+```csharp
+await prax.Auth.LoginAsync(email, password);   // the bus needs a signed-in user, not the key
+
+var room = prax.Bus.Topic("office").Channel("hq");   // the bus "office:hq"
+
+room.On("move", e => MoveAvatar(e.FromUserId, e.Payload));
+room.OnPeerLeft(RemoveAvatar);
+
+// JoinAsync returns everyone already there, so a late arrival sees the room rather than
+// an empty one until somebody happens to move.
+foreach (var peer in await room.JoinAsync())
+    MoveAvatar(peer.UserId, peer.Payload);
+
+await room.PublishAsync("move", new { x, y });
+```
+
+**A topic must exist before anyone can join it.** Declare it once in the portal under
+API Gateway / Event Bus and pick its access rule: open to any signed-in user, gated on a role from
+their token, or gated on a grant on that one bus instance. An undeclared topic is refused - which
+is what stops somebody else's client squatting in your namespace.
+
+`prax.Bus.Self` is the caller's own bus, `user:self`. The server resolves it to their id, so it can
+never address anybody else.
+
+Three things about it are not obvious and will bite:
+
+- **Nothing is persisted.** No history, no retry, no delivery to somebody who was not connected.
+  The test is one question: *if this is lost, does it matter?* Yes means it belongs in a table via
+  `prax.Data`, or in an automation. No, because a newer one is coming, means it belongs here.
+- **Payloads are hostile.** The bus relays opaque JSON between *users* and parses none of it, so
+  every server-side sanitizer is bypassed. Treat it the way you would treat a URL query string.
+- **You never receive your own event.** Apply your own change locally.
+
+`PublishAsync` does not throw when the bus refuses a frame - a game loop that throws on a rate
+limit is worse than one that skips a frame. Read the result when you care:
+
+```csharp
+var r = await room.PublishAsync("move", new { x, y });
+if (!r.Ok) Log(r.Error);            // e.g. "rate_limited"
+if (r.Recipients == 0) { }          // it went out, and nobody was joined
+```
+
+`JoinAsync` is the opposite and throws: a publish that does not land is one lost frame, a join that
+does not land leaves this client silently absent for the whole session.
+
+Reconnects are handled. The socket comes back with backoff and every channel you still want is
+re-joined, because SignalR group membership does not survive a reconnect - a client that only
+reconnects is connected, in no groups, and looks for all the world like a broken server.
+
+The SDK speaks SignalR's JSON protocol directly rather than referencing
+`Microsoft.AspNetCore.SignalR.Client`. The surface is four message types wide, this package has
+zero dependencies (which is what lets it load into Godot and Unity), and that client defaults
+`withCredentials` to true - the one setting that makes the handshake fail against our gateway.
+
+---
+
+## Signing in with an external provider
+
+```csharp
+var config = await prax.Auth.GetWorkspaceConfigAsync();
+foreach (var provider in config.Providers)
+    AddButton(provider.Slug, provider.DisplayName);
+
+var start = await prax.Auth.StartOidcLoginAsync("tesseract");
+Process.Start(new ProcessStartInfo(start.AuthorizationUrl) { UseShellExecute = true });
+
+// ...once the provider has redirected back with code and state:
+await prax.Auth.CompleteOidcLoginAsync(
+    "tesseract", code, state,
+    "https://app.example/callback");   // byte-identical to the configured redirect URI
+```
+
+All four arguments are required, and three of them are why an external sign-in fails when it fails:
+the gateway scopes its one-time `state` per provider, consumes it once, and compares the redirect
+URI against the value configured for that provider. Pass the URI you were actually redirected to
+rather than rebuilding it - that is how it ends up differing by a trailing slash and failing with a
+message about redirect URIs that nobody can act on.
+
+The session lands in the same store as a password login, so refresh, sign-out and every
+authenticated call behave identically afterwards.
+
+Only the authorization-code flow exists. There is no route that accepts a provider's own
+`id_token`, so even a native button has to make the browser hop.
 
 ---
 
