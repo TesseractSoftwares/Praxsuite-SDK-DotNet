@@ -259,7 +259,7 @@ namespace Praxsuite.Tests
         [Test]
         public void Topic_composes_the_key_and_returns_the_same_channel_object()
         {
-            using (var client = new PraxsuiteClient("1eb92f32-d628-4656-8c64-cd0d43c9869d",
+            using (var client = new PraxsuiteClient("00000000-0000-4000-8000-0000000000ff",
                        "https://gateway.example.test",
                        "pk_live_" + "fedcba9876543210fedcba9876543210"))
             {
@@ -276,7 +276,7 @@ namespace Praxsuite.Tests
         [Test]
         public void Self_is_the_reserved_user_bus()
         {
-            using (var client = new PraxsuiteClient("1eb92f32-d628-4656-8c64-cd0d43c9869d",
+            using (var client = new PraxsuiteClient("00000000-0000-4000-8000-0000000000ff",
                        "https://gateway.example.test",
                        "pk_live_" + "fedcba9876543210fedcba9876543210"))
             {
