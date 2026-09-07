@@ -96,7 +96,39 @@ namespace Praxsuite
         public IReadOnlyList<string> EnabledRegisterFields = Array.Empty<string>();
 
         /// <summary>OIDC provider slugs configured for this workspace.</summary>
+        /// <summary>Configured provider slugs. Kept for compatibility.</summary>
         public IReadOnlyList<string> OidcProviders = Array.Empty<string>();
+
+        /// <summary>
+        /// The providers, with the label to put on each button. This is the authoritative list -
+        /// authPageConfig.enabledSocialProviders is a different thing, written by the portal's
+        /// auth-page designer, and a provider named there but absent here is not configured.
+        /// </summary>
+        public IReadOnlyList<PraxOidcProvider> Providers = Array.Empty<PraxOidcProvider>();
+    }
+
+    /// <summary>Where to send the user for an external sign-in, and the CSRF token to bring back.</summary>
+    public class PraxOidcStart
+    {
+        /// <summary>Open this in a browser or webview.</summary>
+        public string AuthorizationUrl;
+
+        /// <summary>
+        /// One-time value the gateway issued and will consume on the callback. The provider echoes
+        /// it back on the redirect, so it can usually be read from there - it is returned here so
+        /// nobody has to parse it out of a URL.
+        /// </summary>
+        public string State;
+    }
+
+    /// <summary>One external identity provider the workspace has configured.</summary>
+    public class PraxOidcProvider
+    {
+        /// <summary>The value to pass to StartOidcLoginAsync.</summary>
+        public string Slug;
+
+        /// <summary>What to put on the button.</summary>
+        public string DisplayName;
     }
 
     /// <summary>Maps gateway auth payloads onto SDK types.</summary>
@@ -237,16 +269,26 @@ namespace Praxsuite
                 providersNode is List<object> providers)
             {
                 var slugs = new List<string>(providers.Count);
+                var detailed = new List<PraxOidcProvider>(providers.Count);
                 foreach (var p in providers)
                 {
                     if (p is Dictionary<string, object> provider)
                     {
                         var slug = Str(provider, "slug") ?? Str(provider, "name");
-                        if (!string.IsNullOrEmpty(slug)) slugs.Add(slug);
+                        if (!string.IsNullOrEmpty(slug))
+                        {
+                            slugs.Add(slug);
+                            detailed.Add(new PraxOidcProvider
+                            {
+                                Slug = slug,
+                                DisplayName = Str(provider, "displayName") ?? slug,
+                            });
+                        }
                     }
                     else if (p is string s) slugs.Add(s);
                 }
                 config.OidcProviders = slugs;
+                config.Providers = detailed;
             }
 
             return config;

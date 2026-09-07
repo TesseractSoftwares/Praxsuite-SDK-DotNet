@@ -369,7 +369,7 @@ namespace Praxsuite
         /// Provider slugs come from <see cref="GetWorkspaceConfigAsync"/> - showing a button for
         /// a provider the workspace has not configured only produces a dead end.
         /// </summary>
-        public async Task<string> GetOidcAuthorizationUrlAsync(string providerSlug,
+        public async Task<PraxOidcStart> StartOidcLoginAsync(string providerSlug,
             CancellationToken ct = default)
         {
             Require(providerSlug, nameof(providerSlug));
@@ -387,20 +387,57 @@ namespace Praxsuite
                     "The gateway did not return an authorization URL for provider '" + providerSlug +
                     "'. Check that the provider is configured and enabled for this workspace.");
 
-            return url;
+            return new PraxOidcStart
+            {
+                AuthorizationUrl = url,
+                State = PraxHttp.AsString(payload, "state") ?? string.Empty,
+            };
         }
 
         /// <summary>
-        /// Completes an OIDC sign-in by exchanging the provider's code for a session. Pass the
-        /// <c>code</c> and <c>state</c> exactly as the redirect delivered them.
+        /// Returns only the URL. Prefer <see cref="StartOidcLoginAsync"/>, which also returns the
+        /// state the callback requires.
         /// </summary>
-        public async Task<PraxAuthResult> CompleteOidcLoginAsync(string code, string state,
+        [Obsolete("Use StartOidcLoginAsync, which also returns the state the callback requires.")]
+        public async Task<string> GetOidcAuthorizationUrlAsync(string providerSlug,
             CancellationToken ct = default)
         {
-            Require(code, nameof(code));
+            var start = await StartOidcLoginAsync(providerSlug, ct).ConfigureAwait(false);
+            return start.AuthorizationUrl;
+        }
 
-            var payload = new Dictionary<string, object> { { "code", code } };
-            if (!string.IsNullOrEmpty(state)) payload["state"] = state;
+        /// <summary>
+        /// Completes an external sign-in, exchanging the provider's code for a Praxsuite session.
+        ///
+        /// All four values are required by the gateway, and three of them are why this call fails
+        /// when it fails. <paramref name="providerSlug"/> scopes the one-time state, so omitting it
+        /// makes every callback look expired. <paramref name="state"/> is consumed once; reusing or
+        /// skipping it is rejected. <paramref name="redirectUri"/> is compared against the value
+        /// configured for that provider and must match exactly - pass the URI you were actually
+        /// redirected to rather than rebuilding it, which is how it ends up differing by a trailing
+        /// slash and failing with a message about redirect URIs that nobody can act on.
+        ///
+        /// The session is stored exactly as a password login stores it, so refresh, sign-out and
+        /// every authenticated call behave identically afterwards.
+        ///
+        /// An email already registered as a local password account comes back as a 400 rather than
+        /// a session; the user's fix is to sign in with their password.
+        /// </summary>
+        public async Task<PraxAuthResult> CompleteOidcLoginAsync(string providerSlug, string code,
+            string state, string redirectUri, CancellationToken ct = default)
+        {
+            Require(providerSlug, nameof(providerSlug));
+            Require(code, nameof(code));
+            Require(state, nameof(state));
+            Require(redirectUri, nameof(redirectUri));
+
+            var payload = new Dictionary<string, object>
+            {
+                { "providerSlug", providerSlug },
+                { "code", code },
+                { "state", state },
+                { "redirectUri", redirectUri },
+            };
 
             var body = await PraxHttp.SendJsonAsync(_client, "POST",
                 PraxRoutes.Auth(_client.BaseUrl, _client.WorkspaceId, "oidc/callback"),

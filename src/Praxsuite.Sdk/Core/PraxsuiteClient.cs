@@ -48,6 +48,12 @@ namespace Praxsuite
         /// <summary>Platform identity links, for analytics and account linking.</summary>
         public PraxPlayers Players { get; }
 
+        /// <summary>
+        /// The Event Bus: ephemeral realtime between connected clients. Needs a signed-in end
+        /// user, not the workspace key.
+        /// </summary>
+        public PraxBus Bus { get; }
+
         /// <summary>Raised after a successful sign-in, or a session restored from a store.</summary>
         public event Action<PraxSession> SignedIn;
 
@@ -114,6 +120,7 @@ namespace Praxsuite
             Endpoints = new PraxEndpoints(this);
             Files = new PraxFiles(this);
             Players = new PraxPlayers(this);
+            Bus = new PraxBus(this);
         }
 
         /// <summary>Convenience overload for the common case: a workspace id and nothing else.</summary>
