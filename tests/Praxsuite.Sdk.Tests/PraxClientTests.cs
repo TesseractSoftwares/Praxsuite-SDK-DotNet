@@ -16,7 +16,7 @@ namespace Praxsuite.Tests
     /// </summary>
     public class PraxClientTests
     {
-        private const string Workspace = "1eb92f32-d628-4656-8c64-cd0d43c9869d";
+        private const string Workspace = "00000000-0000-4000-8000-0000000000ff";
         private const string Table = "2192d04c-4361-4a82-aaec-6e3f2c6172af";
         private const string Key = "pk_live_" + "fedcba9876543210fedcba9876543210";
 

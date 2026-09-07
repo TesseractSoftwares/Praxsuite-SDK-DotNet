@@ -139,7 +139,7 @@ namespace Praxsuite.Tests
         [Test]
         public void Routes_use_the_frontdoor_short_form()
         {
-            const string ws = "1eb92f32-d628-4656-8c64-cd0d43c9869d";
+            const string ws = "00000000-0000-4000-8000-0000000000ff";
 
             Assert.AreEqual("https://gateway.praxsuite.com/" + ws + "/query",
                 PraxRoutes.Query("https://gateway.praxsuite.com", ws));

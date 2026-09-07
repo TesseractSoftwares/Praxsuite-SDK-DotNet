@@ -73,7 +73,7 @@ namespace Praxsuite.Tests
             // The Unity SDK checks this in its settings asset; here the constructor is the gate.
             Assert.Throws<PraxSecurityException>(() => new PraxsuiteClient(new PraxsuiteOptions
             {
-                WorkspaceId = "1eb92f32-d628-4656-8c64-cd0d43c9869d",
+                WorkspaceId = "00000000-0000-4000-8000-0000000000ff",
                 PublishableKey = FakeSecret,
             }));
         }
