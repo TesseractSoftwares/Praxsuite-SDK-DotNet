@@ -27,8 +27,18 @@ pool:
   name: tesseract-buildpool
 
 variables:
-  isMaster: $[eq(variables['Build.SourceBranch'], 'refs/heads/master')]
-  githubRepo: 'TesseractSoftwares/Praxsuite-SDK-DotNet'
+  # Los secretos de publicacion salian de prax-cicd-kv, que vive en la
+  # suscripcion de Azure bloqueada el 2026-09-15. Ahora vienen de Secret
+  # Manager de GCP, donde los 46 secretos de ese vault ya estaban replicados
+  # desde el 2026-09-09: una sola fuente de verdad, no dos copias que se
+  # desincronizan. El grupo gcp-migration aporta GCP_SA_KEY_B64.
+  - group: gcp-migration
+  - name: gcpProject
+    value: 'praxsuite-prod'
+  - name: isMaster
+    value: $[eq(variables['Build.SourceBranch'], 'refs/heads/master')]
+  - name: githubRepo
+    value: 'TesseractSoftwares/Praxsuite-SDK-DotNet'
 
 stages:
 
@@ -97,14 +107,6 @@ stages:
             packageType: 'sdk'
             version: '9.0.x'
 
-        - task: AzureKeyVault@2
-          displayName: 'Read publish secrets'
-          inputs:
-            azureSubscription: 'sc-acr-push-core-prod'
-            KeyVaultName: 'prax-cicd-kv'
-            SecretsFilter: 'GITHUB-SDK-MIRROR-TOKEN,NUGET-API-KEY,PRAXSPACE-INGEST-URL'
-            RunAsPreJob: false
-
         # The csproj is the single source of truth for the release tag, so a release can never
         # disagree with the package version consumers actually install.
         - script: |
@@ -151,6 +153,13 @@ stages:
           inputs:
             PathtoPublish: '$(Build.ArtifactStagingDirectory)/package'
             ArtifactName: 'nuget-package'
+
+        - template: .azure/templates/gcp-secrets.yml
+          parameters:
+            secretos:
+              GITHUB-SDK-MIRROR-TOKEN: cicd-github-sdk-mirror-token
+              NUGET-API-KEY: cicd-nuget-api-key
+              PRAXSPACE-INGEST-URL: cicd-praxspace-ingest-url
 
         # The mirror must not overwrite history it does not contain. --force-with-lease was used
         # here, preceded by a fetch, which cannot protect anything: fetching sets the
