@@ -27,8 +27,17 @@ pool:
   name: tesseract-buildpool
 
 variables:
-  isMaster: $[eq(variables['Build.SourceBranch'], 'refs/heads/master')]
-  githubRepo: 'TesseractSoftwares/Praxsuite-SDK-DotNet'
+  # Los secretos de publicacion salian de prax-cicd-kv, que vive en la
+  # suscripcion de Azure bloqueada el 2026-09-15. Las lecturas todavia
+  # funcionan, pero si esa suscripcion llega a eliminarse el pipeline se cae.
+  # Este grupo es NATIVO de ADO: no se le agrega gcloud a un pipeline que no lo
+  # necesita para nada mas. Los nombres de variable son identicos a los del
+  # vault, asi que las referencias $(...) de mas abajo no cambian.
+  - group: sdk-publish
+  - name: isMaster
+    value: $[eq(variables['Build.SourceBranch'], 'refs/heads/master')]
+  - name: githubRepo
+    value: 'TesseractSoftwares/Praxsuite-SDK-DotNet'
 
 stages:
 
@@ -96,14 +105,6 @@ stages:
           inputs:
             packageType: 'sdk'
             version: '9.0.x'
-
-        - task: AzureKeyVault@2
-          displayName: 'Read publish secrets'
-          inputs:
-            azureSubscription: 'sc-acr-push-core-prod'
-            KeyVaultName: 'prax-cicd-kv'
-            SecretsFilter: 'GITHUB-SDK-MIRROR-TOKEN,NUGET-API-KEY,PRAXSPACE-INGEST-URL'
-            RunAsPreJob: false
 
         # The csproj is the single source of truth for the release tag, so a release can never
         # disagree with the package version consumers actually install.
