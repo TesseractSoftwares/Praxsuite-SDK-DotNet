@@ -45,7 +45,48 @@ namespace Praxsuite
         {
             var value = this[column];
             if (value == null) return fallback;
-            return value as string ?? Convert.ToString(value, CultureInfo.InvariantCulture);
+            return AsText(value);
+        }
+
+        /// <summary>
+        /// A Json column's value as parsed JSON: a <c>Dictionary&lt;string, object&gt;</c>, a
+        /// <c>List&lt;object&gt;</c>, or a scalar. Works with both shapes the server has used: the
+        /// value itself (current), and the JSON text inside a string (servers before 2026-11).
+        /// Text that is not JSON comes back as the text. Never throws.
+        /// </summary>
+        public object GetJson(string column, object fallback = null)
+        {
+            var value = this[column];
+            if (value == null) return fallback;
+            return ParseJsonTolerant(value);
+        }
+
+        /// <summary>
+        /// Parses a string that holds JSON; anything else, and text that is not JSON, is returned
+        /// unchanged. The tolerant parse callers need while servers move from text to values.
+        /// </summary>
+        public static object ParseJsonTolerant(object value)
+        {
+            if (!(value is string text)) return value;
+            try
+            {
+                return PraxJson.Parse(text);
+            }
+            catch (Exception)
+            {
+                return text;
+            }
+        }
+
+        /// <summary>
+        /// Text for any value. An object or array (a Json column, now that the server returns it
+        /// as a value) becomes its JSON text, as it read before - not a .NET type name.
+        /// </summary>
+        private static string AsText(object value)
+        {
+            if (value is string s) return s;
+            if (value is Dictionary<string, object> || value is List<object>) return PraxJson.Serialize(value);
+            return Convert.ToString(value, CultureInfo.InvariantCulture);
         }
 
         public int GetInt(string column, int fallback = 0)
@@ -191,7 +232,17 @@ namespace Praxsuite
             try
             {
                 if (underlying == typeof(string))
-                    return value as string ?? Convert.ToString(value, CultureInfo.InvariantCulture);
+                    return AsText(value);
+
+                // A Json column projected onto a Dictionary/List member: older servers sent it as
+                // JSON text, current ones as the value.
+                if (value is string jsonText
+                    && (underlying.IsAssignableFrom(typeof(Dictionary<string, object>))
+                        || underlying.IsAssignableFrom(typeof(List<object>))))
+                {
+                    var parsed = ParseJsonTolerant(jsonText);
+                    return underlying.IsInstanceOfType(parsed) ? parsed : null;
+                }
 
                 if (underlying.IsEnum)
                 {

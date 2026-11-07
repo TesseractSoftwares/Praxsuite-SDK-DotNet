@@ -3,6 +3,21 @@
 All notable changes to the Praxsuite SDK for .NET.
 This project follows [Semantic Versioning](https://semver.org/).
 
+## [Unreleased]
+
+### Changed
+
+- **Json columns arrive as values.** PraxQL now returns a Json column as the JSON value it
+  holds instead of JSON text inside a string. `PraxRow.GetString` still returns JSON text for an
+  object or array (before, it would have returned a .NET type name), and `As<T>` fills a `string`
+  member with that text and a `Dictionary<string, object>` / `List<object>` member with the value.
+
+### Added
+
+- **`PraxRow.GetJson(column)`** and **`PraxRow.ParseJsonTolerant(value)`**: the parsed JSON of a
+  Json column, whichever shape the server sends (value or text). Text that is not JSON comes back
+  as text; neither ever throws.
+
 ## [1.1.0] - 2026-09-07
 
 ### Added

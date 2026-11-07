@@ -100,6 +100,53 @@ namespace Praxsuite.Tests
             Assert.IsFalse(row.Has("Missing"));
         }
 
+        // A Json column used to arrive as JSON text inside a string; the server now sends the value
+        // itself. Both shapes must read the same, so the SDK works on either side of the deploy.
+        [TestCase("{\"Specs\":{\"rueda\":\"700c\",\"cambios\":22}}")]
+        [TestCase("{\"Specs\":\"{\\\"rueda\\\":\\\"700c\\\",\\\"cambios\\\":22}\"}")]
+        public void Json_columns_read_the_same_as_value_or_as_text(string body)
+        {
+            var row = PraxRowReader.ReadRow(PraxJson.ParseObject(body));
+
+            var specs = row.GetJson("Specs") as Dictionary<string, object>;
+            Assert.IsNotNull(specs);
+            Assert.AreEqual("700c", specs["rueda"]);
+            Assert.AreEqual(22L, specs["cambios"]);
+
+            // GetString keeps returning JSON text, never a .NET type name.
+            var text = row.GetString("Specs");
+            StringAssert.Contains("\"rueda\":\"700c\"", text.Replace(" ", ""));
+        }
+
+        [Test]
+        public void Json_tolerant_parse_never_throws()
+        {
+            Assert.AreEqual("hola", PraxRow.ParseJsonTolerant("hola"));
+            Assert.AreEqual("{no es json", PraxRow.ParseJsonTolerant("{no es json"));
+            Assert.AreEqual(5L, PraxRow.ParseJsonTolerant(5L));
+            Assert.IsInstanceOf<List<object>>(PraxRow.ParseJsonTolerant("[1,2]"));
+        }
+
+        private class SpecsHolder
+        {
+            public Dictionary<string, object> Specs;
+            public string SpecsText;
+        }
+
+        [Test]
+        public void Json_columns_project_onto_dictionary_and_string_members()
+        {
+            var fromValue = PraxRowReader.ReadRow(PraxJson.ParseObject(
+                "{\"Specs\":{\"a\":1},\"SpecsText\":{\"a\":1}}")).As<SpecsHolder>();
+            var fromText = PraxRowReader.ReadRow(PraxJson.ParseObject(
+                "{\"Specs\":\"{\\\"a\\\":1}\",\"SpecsText\":\"{\\\"a\\\":1}\"}")).As<SpecsHolder>();
+
+            Assert.AreEqual(1L, fromValue.Specs["a"]);
+            Assert.AreEqual(1L, fromText.Specs["a"]);
+            Assert.AreEqual("{\"a\":1}", fromValue.SpecsText.Replace(" ", ""));
+            Assert.AreEqual("{\"a\":1}", fromText.SpecsText);
+        }
+
         private class SaveData
         {
             public string Name;
