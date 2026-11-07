@@ -7,10 +7,11 @@ This project follows [Semantic Versioning](https://semver.org/).
 
 ### Changed
 
-- **Json columns arrive as values.** PraxQL now returns a Json column as the JSON value it
-  holds instead of JSON text inside a string. `PraxRow.GetString` still returns JSON text for an
-  object or array (before, it would have returned a .NET type name), and `As<T>` fills a `string`
-  member with that text and a `Dictionary<string, object>` / `List<object>` member with the value.
+- **Json columns as values.** API keys with "native JSON" on (the default for keys created from
+  2026-11-07; existing keys keep text until switched) get a Json column as the JSON value it holds
+  instead of JSON text inside a string. `PraxRow` reads both: `GetString` returns JSON text for an
+  object or array (instead of a .NET type name), and `As<T>` fills a `string` member with that text
+  and a `Dictionary<string, object>` / `List<object>` member with the value.
 
 ### Added
 
