@@ -3,7 +3,7 @@
 All notable changes to the Praxsuite SDK for .NET.
 This project follows [Semantic Versioning](https://semver.org/).
 
-## [Unreleased]
+## [1.2.0] - 2026-11-07
 
 ### Changed
 
