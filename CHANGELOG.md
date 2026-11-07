@@ -3,6 +3,24 @@
 All notable changes to the Praxsuite SDK for .NET.
 This project follows [Semantic Versioning](https://semver.org/).
 
+## [1.2.0] - 2026-11-07
+
+### Changed
+
+- **Json columns as values.** API keys with "native JSON" on (the default for keys created from
+  2026-11-07; existing keys keep text until switched) get a Json column as the JSON value it holds
+  instead of JSON text inside a string. `PraxRow` reads both: `GetString` returns JSON text for an
+  object or array (instead of a .NET type name), and `As<T>` fills a `string` member with that text
+  and a `Dictionary<string, object>` / `List<object>` member with the value.
+
+### Added
+
+- **`X-Praxsuite-Sdk: dotnet/<version>`** on every request, so the gateway can tell which clients
+  run which SDK before a contract change.
+- **`PraxRow.GetJson(column)`** and **`PraxRow.ParseJsonTolerant(value)`**: the parsed JSON of a
+  Json column, whichever shape the server sends (value or text). Text that is not JSON comes back
+  as text; neither ever throws.
+
 ## [1.1.0] - 2026-09-07
 
 ### Added

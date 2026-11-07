@@ -1,4 +1,5 @@
 using System;
+using System.Reflection;
 using System.Collections.Generic;
 using System.Globalization;
 using System.Net.Http;
@@ -16,6 +17,28 @@ namespace Praxsuite
     internal static class PraxHttp
     {
         private const string ApiKeyHeader = "x-api-key";
+
+        /// <summary>
+        /// Names this SDK and its version on every request, e.g. <c>dotnet/1.2.0</c>. The gateway
+        /// could not tell which clients ran an old SDK before a contract change (Json columns as
+        /// values, 2026-11): .NET sends no User-Agent of its own, so nothing in the logs said who
+        /// would be affected.
+        /// </summary>
+        internal const string SdkHeader = "X-Praxsuite-Sdk";
+
+        internal static readonly string SdkHeaderValue = "dotnet/" + SdkVersion();
+
+        private static string SdkVersion()
+        {
+            var assembly = typeof(PraxHttp).Assembly;
+            var informational = assembly.GetCustomAttribute<AssemblyInformationalVersionAttribute>()?.InformationalVersion;
+            if (!string.IsNullOrEmpty(informational))
+            {
+                var plus = informational.IndexOf('+');
+                return plus > 0 ? informational.Substring(0, plus) : informational;
+            }
+            return assembly.GetName().Version?.ToString(3) ?? "0.0.0";
+        }
         private const int MaxBackoffMs = 30_000;
 
         // Backoff jitter can be computed from any thread, and Random is not thread-safe.
@@ -54,6 +77,7 @@ namespace Praxsuite
         /// </summary>
         private static void ApplyCredential(HttpRequestMessage request, string credential)
         {
+            request.Headers.TryAddWithoutValidation(SdkHeader, SdkHeaderValue);
             if (string.IsNullOrEmpty(credential)) return;
 
             if (PraxKeyGuard.Classify(credential) == PraxKeyGuard.KeyKind.EndUserJwt)
