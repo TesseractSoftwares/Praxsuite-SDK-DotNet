@@ -14,6 +14,8 @@ This project follows [Semantic Versioning](https://semver.org/).
 
 ### Added
 
+- **`X-Praxsuite-Sdk: dotnet/<version>`** on every request, so the gateway can tell which clients
+  run which SDK before a contract change.
 - **`PraxRow.GetJson(column)`** and **`PraxRow.ParseJsonTolerant(value)`**: the parsed JSON of a
   Json column, whichever shape the server sends (value or text). Text that is not JSON comes back
   as text; neither ever throws.

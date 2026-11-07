@@ -156,6 +156,17 @@ namespace Praxsuite.Tests
         }
 
         [Test]
+        public async Task Every_request_names_the_sdk_and_its_version()
+        {
+            // Lets the gateway tell which clients run an old SDK before a contract change.
+            var (client, handler) = Build();
+            await client.Data.From(Table).ToListAsync();
+
+            Assert.IsTrue(handler.Calls[0].Headers.TryGetValues("X-Praxsuite-Sdk", out var values));
+            StringAssert.IsMatch(@"^dotnet/\d+\.\d+\.\d+", values.First());
+        }
+
+        [Test]
         public void A_403_is_typed_and_not_retried()
         {
             var (client, handler) = Build(maxRetries: 3);
